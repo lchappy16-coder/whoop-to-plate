@@ -39,7 +39,7 @@ st.markdown("""
         text-align: center;
     }
     
-    /* 4. FIX DROPDOWN MENU (Dark Mode) */
+    /* 4. FIX DROPDOWN MENU */
     div[data-baseweb="select"] > div {
         background-color: #161B22 !important;
         border: 1px solid #30363D !important;
@@ -51,7 +51,6 @@ st.markdown("""
     li[role="option"] {
         color: #E0E0E0 !important;
     }
-    /* Hover state for options */
     li[role="option"]:hover, li[role="option"][aria-selected="true"] {
         background-color: #00C805 !important;
         color: #FFFFFF !important;
@@ -174,9 +173,13 @@ if st.session_state.plan_generated:
             day_plan = next((d for d in plan.daily_plans if d.day_name == day_name), None)
             
             if day_plan:
+                # --- FIX IS HERE ---
+                # We ignore the 'target' and sum the actual meals to display the TRUE total
+                daily_total = sum(slot.recipe.calories for slot in day_plan.schedule)
+                
                 c_a, c_b = st.columns([3, 1])
                 with c_a: st.markdown(f"### 📅 {day_name} Schedule")
-                with c_b: st.markdown(f"<div style='text-align:right; font-size:1.5em; color:#00C805; font-weight:bold;'>{day_plan.target_calories} kcal</div>", unsafe_allow_html=True)
+                with c_b: st.markdown(f"<div style='text-align:right; font-size:1.5em; color:#00C805; font-weight:bold;'>{daily_total} kcal</div>", unsafe_allow_html=True)
                 
                 st.markdown("---")
                 

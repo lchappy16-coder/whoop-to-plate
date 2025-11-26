@@ -20,14 +20,77 @@ st.set_page_config(
 # MODERN HIGH-CONTRAST CSS
 st.markdown("""
 <style>
-    .stApp, .stMarkdown, h1, h2, h3, h4, h5, h6, p, li, span, div { color: #E0E0E0 !important; }
-    .stApp { background-color: #0E1117; }
-    .upload-card { background-color: #161B22; border: 1px dashed #30363D; border-radius: 10px; padding: 20px; text-align: center; }
-    .meal-card { background-color: #1E1E1E; border: 1px solid #333; border-left: 4px solid #00C805; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-    div[data-testid="stMetricValue"] { color: #00C805 !important; font-size: 28px !important; }
-    div[data-testid="stMetricLabel"] { color: #8B949E !important; }
-    div.stButton > button { background-color: #00C805; color: white !important; border: none; font-weight: bold; padding: 10px 24px; border-radius: 8px; transition: all 0.2s; }
-    div.stButton > button:hover { background-color: #00E006; transform: scale(1.02); }
+    /* 1. FORCE TEXT COLOR */
+    .stApp, .stMarkdown, h1, h2, h3, h4, h5, h6, p, li, span, div {
+        color: #E0E0E0 !important;
+    }
+    
+    /* 2. BACKGROUND */
+    .stApp {
+        background-color: #0E1117;
+    }
+
+    /* 3. UPLOAD CARDS */
+    .upload-card {
+        background-color: #161B22;
+        border: 1px dashed #30363D;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    /* 4. FIX DROPDOWN MENU (Dark Mode) */
+    div[data-baseweb="select"] > div {
+        background-color: #161B22 !important;
+        border: 1px solid #30363D !important;
+        color: #E0E0E0 !important;
+    }
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"] {
+        background-color: #161B22 !important;
+    }
+    li[role="option"] {
+        color: #E0E0E0 !important;
+    }
+    /* Hover state for options */
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] {
+        background-color: #00C805 !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* 5. MEAL CARDS */
+    .meal-card {
+        background-color: #1E1E1E;
+        border: 1px solid #333;
+        border-left: 4px solid #00C805;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    
+    /* 6. METRICS */
+    div[data-testid="stMetricValue"] {
+        color: #00C805 !important;
+        font-size: 28px !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #8B949E !important;
+    }
+
+    /* 7. BUTTONS */
+    div.stButton > button {
+        background-color: #00C805;
+        color: white !important;
+        border: none;
+        font-weight: bold;
+        padding: 10px 24px;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    div.stButton > button:hover {
+        background-color: #00E006;
+        transform: scale(1.02);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +138,6 @@ with center_col2:
                     metrics = ingestor.analyze_patterns()
                     
                     chef = MealPlanner()
-                    # Pass the goal choice to the planner
                     plan = chef.generate_precision_week(metrics, goal_choice)
                     
                     st.session_state.metrics = metrics

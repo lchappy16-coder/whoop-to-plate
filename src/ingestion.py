@@ -1,7 +1,4 @@
-# src/ingestion.py
-import pandas as pd
-import tkinter as tk
-from tkinter import filedialog
+﻿import pandas as pd
 import sys
 from datetime import timedelta
 from src.models import WeeklyMetrics, WeekdayProfile
@@ -11,30 +8,13 @@ class IngestionEngine:
         self.files = ["physiological_cycles.csv", "workouts.csv", "sleeps.csv", "journal_entries.csv"]
         self.dfs = {}
 
-    # --- METHOD 1: FOR TERMINAL (Old way) ---
-    def load_data_interactive(self):
-        root = tk.Tk(); root.withdraw()
-        print("\n--- 📂 DATA INGESTION ---")
-        for f in self.files:
-            print(f"Select [{f}]...")
-            path = filedialog.askopenfilename(title=f"Select {f}")
-            if not path: sys.exit()
-            self.dfs[f] = pd.read_csv(path)
-        self._normalize_dates()
-
-    # --- METHOD 2: FOR WEB APP (New way) ---
     def load_from_memory(self, uploaded_files):
-        """
-        Accepts a dictionary of Streamlit file buffers:
-        {'physiological_cycles.csv': file_buffer, ...}
-        """
+        print("Loading files from memory...")
         for filename, buffer in uploaded_files.items():
             if buffer is not None:
-                # Seek start to ensure we read from beginning
                 buffer.seek(0)
                 self.dfs[filename] = pd.read_csv(buffer)
         
-        # Verify we have all 4
         if len(self.dfs) < 4:
             raise ValueError(f"Missing files! Only loaded: {list(self.dfs.keys())}")
             
@@ -49,9 +29,10 @@ class IngestionEngine:
         }
         for f, df in self.dfs.items():
             col = map_.get(f)
-            if f == "journal_entries.csv" and col not in df.columns: col = "Cycle start time"
+            if f == "journal_entries.csv" and col not in df.columns: 
+                if "Cycle start time" in df.columns: col = "Cycle start time"
             
-            if col in df.columns:
+            if col and col in df.columns:
                 df['datetime_obj'] = pd.to_datetime(df[col])
                 df['date_obj'] = df['datetime_obj'].dt.date
                 df['day_name'] = df['datetime_obj'].dt.day_name()
@@ -61,7 +42,6 @@ class IngestionEngine:
         workouts = self.dfs["workouts.csv"]
         sleeps = self.dfs["sleeps.csv"]
         
-        # Baseline Averages
         avg_burn = int(cycles['Energy burned (cal)'].mean()) if not cycles.empty else 2000
         avg_rec = int(cycles['Recovery score %'].mean()) if not cycles.empty else 50
         
@@ -69,7 +49,6 @@ class IngestionEngine:
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         
         for day in days:
-            # Wake Logic
             day_sleeps = sleeps[sleeps['day_name'] == day]
             wake_time = "07:00"
             if not day_sleeps.empty:
@@ -85,14 +64,12 @@ class IngestionEngine:
                     if 4 <= avg_w_h <= 11:
                         wake_time = f"{int(avg_w_h):02d}:{int((avg_w_h % 1)*60):02d}"
 
-            # Workout Logic
             day_workouts = workouts[workouts['day_name'] == day]
             workout_time = "Rest Day"
             if not day_workouts.empty:
                 avg_work_h = day_workouts['datetime_obj'].dt.hour.mean()
                 workout_time = f"{int(avg_work_h):02d}:00"
             
-            # Strain
             day_cycles = cycles[cycles['day_name'] == day]
             avg_strain = day_cycles['Day Strain'].mean() if not day_cycles.empty else 10.0
 

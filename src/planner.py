@@ -26,7 +26,7 @@ class MealPlanner:
             # Build Schedule
             schedule = self._build_daily_schedule(profile, int(daily_target))
             
-            # Sum exact calories
+            # Sum exact calories from the ROUNDED recipes
             exact_total = sum(s.recipe.calories for s in schedule)
             total_week_cals += exact_total
 
@@ -105,31 +105,31 @@ class MealPlanner:
     def _get_scaled_recipe(self, category, target_cals) -> Recipe:
         template = random.choice(RECIPE_VAULT[category])
         
-        # STRICT SCALING LOGIC
-        # 1. Get Base Nutrition from Config
+        # 1. Get Base Nutrition
         base_cals = template.get('base_cals', 500)
         base_p = template.get('p', 20)
         base_f = template.get('f', 20)
         base_c = template.get('c', 20)
         
-        # 2. Calculate Serving Multiplier
-        # Example: Target 875 / Base 146 = 5.99 Servings
-        servings = target_cals / base_cals
+        # 2. Calculate Ratio
+        raw_ratio = target_cals / base_cals
         
-        # 3. Scale Macros Strictly
+        # 3. ROUND TO NEAREST WHOLE NUMBER (Servings)
+        # Max(1, ...) ensures we never tell the user to eat 0 servings
+        servings = max(1, round(raw_ratio))
+        
+        # 4. Recalculate Macros based on the ROUNDED serving
+        # This ensures the display matches reality (e.g. 2 servings = exactly 2x macros)
+        final_cals = int(base_cals * servings)
         p = int(base_p * servings)
         f = int(base_f * servings)
         c = int(base_c * servings)
         
-        # 4. Format Description to explain the portion
-        # e.g., "2.5 Servings"
-        portion_note = f" ({servings:.1f} Servings)"
-        
         return Recipe(
-            title=template['title'] + portion_note,
+            title=template['title'] + f" ({servings} Servings)",
             description=template['desc'],
-            ingredients_text=f"Portion scaled {servings:.1f}x",
+            ingredients_text=f"Portion scaled to {servings} servings",
             macros=f"{p}g P | {f}g F | {c}g C",
-            calories=int(target_cals),
+            calories=final_cals, # Use the recalculated calories
             search_query=template['query']
         )

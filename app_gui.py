@@ -12,7 +12,7 @@ from src.planner import MealPlanner
 
 # --- 1. PAGE CONFIG & STYLING ---
 st.set_page_config(
-    page_title="WHOOP© to Plate",
+    page_title="WHOOP-TO-PLATE",
     page_icon="🧬",
     layout="wide"
 )
@@ -79,7 +79,7 @@ st.markdown("""
 # --- 2. HEADER ---
 c1, c2 = st.columns([1, 5])
 with c1:
-    st.write("🧬 **WHOOP© TO PLATE**")
+    st.write("🧬 **WHOOP-TO-PLATE**")
 with c2:
     pass 
 
@@ -91,7 +91,7 @@ if 'plan_generated' not in st.session_state:
 
 # HEADER TEXT
 st.markdown("<h1 style='text-align: center; margin-bottom: 10px;'>Initialize Protocol</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #8B949E !important; margin-bottom: 40px;'>Upload your raw WHOOP© exports to generate a precision nutrition strategy.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #8B949E !important; margin-bottom: 40px;'>Upload your raw WHOOP exports to generate a precision nutrition strategy.</p>", unsafe_allow_html=True)
 
 # THE 2x2 GRID
 col1, col2 = st.columns(2, gap="large")
@@ -146,7 +146,7 @@ if st.session_state.plan_generated:
     
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Daily Burn", f"{metrics.avg_daily_burn}", "kcal")
-    m2.metric("Recovery Avg", f"{metrics.avg_recovery}%", "WHOOP©")
+    m2.metric("Recovery Avg", f"{metrics.avg_recovery}%", "WHOOP")
     strain_avg = sum(p.avg_strain for p in metrics.weekday_profiles.values())/7
     m3.metric("Weekly Strain", f"{strain_avg:.1f}", "Load")
     m4.metric("Strategy", metrics.focus_area)

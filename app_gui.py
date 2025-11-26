@@ -20,7 +20,7 @@ st.set_page_config(
 # MODERN HIGH-CONTRAST CSS
 st.markdown("""
 <style>
-    /* 1. FORCE TEXT COLOR (Fixes Dark-on-Dark) */
+    /* 1. FORCE TEXT COLOR */
     .stApp, .stMarkdown, h1, h2, h3, h4, h5, h6, p, li, span, div {
         color: #E0E0E0 !important;
     }
@@ -39,7 +39,7 @@ st.markdown("""
         text-align: center;
     }
     
-    /* 4. MEAL CARDS (Dashboard) */
+    /* 4. MEAL CARDS */
     .meal-card {
         background-color: #1E1E1E;
         border: 1px solid #333;
@@ -79,7 +79,8 @@ st.markdown("""
 # --- 2. HEADER ---
 c1, c2 = st.columns([1, 5])
 with c1:
-    st.write("🧬 **WHOOP ARCHITECT**")
+    # UPDATED TITLE HERE
+    st.write("🧬 **WHOOP TO PLATE**")
 with c2:
     pass 
 
@@ -93,16 +94,14 @@ if 'plan_generated' not in st.session_state:
 st.markdown("<h1 style='text-align: center; margin-bottom: 10px;'>Initialize Protocol</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #8B949E !important; margin-bottom: 40px;'>Upload your raw Whoop exports to generate a precision nutrition strategy.</p>", unsafe_allow_html=True)
 
-# THE 2x2 GRID
+# THE 2x2 GRID (Removed Headers)
 col1, col2 = st.columns(2, gap="large")
 
 with col1:
-    st.markdown("#### 1. Physiology")
     f1 = st.file_uploader("Cycles (physiological_cycles.csv)", type="csv")
     f2 = st.file_uploader("Workouts (workouts.csv)", type="csv")
 
 with col2:
-    st.markdown("#### 2. Lifestyle")
     f3 = st.file_uploader("Sleeps (sleeps.csv)", type="csv")
     f4 = st.file_uploader("Journal (journal_entries.csv)", type="csv")
 

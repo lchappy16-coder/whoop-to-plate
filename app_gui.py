@@ -1,156 +1,195 @@
-# app_gui.py
-import streamlit as st
+﻿import streamlit as st
 import pandas as pd
 import sys
 import os
 
-# Connect to the Brain
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+# --- PATH CONFIGURATION ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
 from src.ingestion import IngestionEngine
 from src.planner import MealPlanner
 
 # --- 1. PAGE CONFIG & STYLING ---
 st.set_page_config(
-    page_title="Whoop-to-Plate Pro",
+    page_title="Whoop-to-Plate",
     page_icon="🧬",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Custom CSS for "Tesla-like" Aesthetics
+# MODERN HIGH-CONTRAST CSS
 st.markdown("""
 <style>
-    /* Main Background */
-    .stApp {
-        background-color: #0e1117;
+    /* 1. FORCE TEXT COLOR (Fixes Dark-on-Dark) */
+    .stApp, .stMarkdown, h1, h2, h3, h4, h5, h6, p, li, span, div {
+        color: #E0E0E0 !important;
     }
     
-    /* Card Styling */
+    /* 2. BACKGROUND */
+    .stApp {
+        background-color: #0E1117;
+    }
+
+    /* 3. UPLOAD CARDS */
+    .upload-card {
+        background-color: #161B22;
+        border: 1px dashed #30363D;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    /* 4. MEAL CARDS (Dashboard) */
     .meal-card {
-        background-color: #1e1e1e;
+        background-color: #1E1E1E;
         border: 1px solid #333;
-        border-radius: 12px;
+        border-left: 4px solid #00C805;
+        border-radius: 8px;
         padding: 20px;
         margin-bottom: 15px;
-        transition: transform 0.2s;
-    }
-    .meal-card:hover {
-        border-color: #00c805; /* Whoop Green */
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     
-    /* Typography */
-    h1, h2, h3 { font-family: 'Helvetica Neue', sans-serif; }
-    .time-badge {
-        background-color: #333;
-        color: #fff;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.85em;
-        font-weight: bold;
-    }
-    .macro-text {
-        color: #aaa;
-        font-size: 0.9em;
-        font-family: monospace;
-    }
-    
-    /* Metrics */
+    /* 5. METRICS */
     div[data-testid="stMetricValue"] {
-        font-size: 24px;
-        color: #00c805;
+        color: #00C805 !important;
+        font-size: 28px !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #8B949E !important;
+    }
+
+    /* 6. BUTTONS */
+    div.stButton > button {
+        background-color: #00C805;
+        color: white !important;
+        border: none;
+        font-weight: bold;
+        padding: 10px 24px;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    div.stButton > button:hover {
+        background-color: #00E006;
+        transform: scale(1.02);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. SIDEBAR (INPUTS) ---
-with st.sidebar:
-    st.title("Data Injection")
-    st.caption("Upload your raw CSV exports.")
-    
-    f1 = st.file_uploader("physiological_cycles.csv", type="csv")
-    f2 = st.file_uploader("workouts.csv", type="csv")
-    f3 = st.file_uploader("sleeps.csv", type="csv")
-    f4 = st.file_uploader("journal_entries.csv", type="csv")
-    
-    run_btn = st.button("Generate Protocol", type="primary", use_container_width=True)
+# --- 2. HEADER ---
+c1, c2 = st.columns([1, 5])
+with c1:
+    st.write("🧬 **WHOOP ARCHITECT**")
+with c2:
+    pass 
 
-# --- 3. MAIN APP LOGIC ---
-if run_btn and f1 and f2 and f3 and f4:
-    try:
-        # 1. Ingest Data from Memory
-        ingestor = IngestionEngine()
-        files_map = {
-            "physiological_cycles.csv": f1,
-            "workouts.csv": f2,
-            "sleeps.csv": f3,
-            "journal_entries.csv": f4
-        }
-        ingestor.load_from_memory(files_map)
-        metrics = ingestor.analyze_patterns()
-        
-        # 2. Plan Meals
-        chef = MealPlanner()
-        plan = chef.generate_precision_week(metrics)
-        
-        # 3. Render Dashboard
-        st.title("🧬 Precision Nutrition Protocol")
-        st.markdown(f"**Focus:** {plan.summary}")
-        
-        # Top Level Stats
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Weekly Avg Burn", f"{metrics.avg_daily_burn} kcal")
-        c2.metric("Avg Recovery", f"{metrics.avg_recovery}%")
-        c3.metric("Avg Strain", f"{sum(p.avg_strain for p in metrics.weekday_profiles.values())/7:.1f}")
-        
-        st.divider()
-        
-        # 4. WEEKLY TABS
-        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-        tabs = st.tabs(days)
-        
-        for i, day_name in enumerate(days):
-            with tabs[i]:
-                # Find the plan for this day
-                day_plan = next((d for d in plan.daily_plans if d.day_name == day_name), None)
+st.divider()
+
+# --- 3. INPUT SECTION ---
+if 'plan_generated' not in st.session_state:
+    st.session_state.plan_generated = False
+
+# HEADER TEXT
+st.markdown("<h1 style='text-align: center; margin-bottom: 10px;'>Initialize Protocol</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #8B949E !important; margin-bottom: 40px;'>Upload your raw Whoop exports to generate a precision nutrition strategy.</p>", unsafe_allow_html=True)
+
+# THE 2x2 GRID
+col1, col2 = st.columns(2, gap="large")
+
+with col1:
+    st.markdown("#### 1. Physiology")
+    f1 = st.file_uploader("Cycles (physiological_cycles.csv)", type="csv")
+    f2 = st.file_uploader("Workouts (workouts.csv)", type="csv")
+
+with col2:
+    st.markdown("#### 2. Lifestyle")
+    f3 = st.file_uploader("Sleeps (sleeps.csv)", type="csv")
+    f4 = st.file_uploader("Journal (journal_entries.csv)", type="csv")
+
+# ACTION BUTTON
+st.markdown("<br>", unsafe_allow_html=True)
+center_col1, center_col2, center_col3 = st.columns([1, 2, 1])
+
+with center_col2:
+    if f1 and f2 and f3 and f4:
+        if st.button("🚀 RUN ANALYSIS ENGINE", use_container_width=True):
+            with st.spinner("Triangulating Circadian Rhythm & Metabolic Load..."):
+                try:
+                    ingestor = IngestionEngine()
+                    files_map = {
+                        "physiological_cycles.csv": f1,
+                        "workouts.csv": f2,
+                        "sleeps.csv": f3,
+                        "journal_entries.csv": f4
+                    }
+                    ingestor.load_from_memory(files_map)
+                    metrics = ingestor.analyze_patterns()
+                    
+                    chef = MealPlanner()
+                    plan = chef.generate_precision_week(metrics)
+                    
+                    st.session_state.metrics = metrics
+                    st.session_state.plan = plan
+                    st.session_state.plan_generated = True
+                    st.rerun() 
+                    
+                except Exception as e:
+                    st.error(f"Error: {e}")
+    else:
+        st.info("Waiting for all 4 files...", icon="⏳")
+
+# --- 4. DASHBOARD ---
+if st.session_state.plan_generated:
+    st.divider()
+    plan = st.session_state.plan
+    metrics = st.session_state.metrics
+    
+    st.success(f"**PROTOCOL GENERATED:** {plan.summary}")
+    
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Daily Burn", f"{metrics.avg_daily_burn}", "kcal")
+    m2.metric("Recovery Avg", f"{metrics.avg_recovery}%", "WHOOP")
+    strain_avg = sum(p.avg_strain for p in metrics.weekday_profiles.values())/7
+    m3.metric("Weekly Strain", f"{strain_avg:.1f}", "Load")
+    m4.metric("Strategy", metrics.focus_area)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    tabs = st.tabs([f"  {d}  " for d in days])
+
+    for i, day_name in enumerate(days):
+        with tabs[i]:
+            day_plan = next((d for d in plan.daily_plans if d.day_name == day_name), None)
+            
+            if day_plan:
+                c_a, c_b = st.columns([3, 1])
+                with c_a:
+                    st.markdown(f"### 📅 {day_name} Schedule")
+                with c_b:
+                    st.markdown(f"<div style='text-align:right; font-size:1.5em; color:#00C805; font-weight:bold;'>{day_plan.target_calories} kcal</div>", unsafe_allow_html=True)
                 
-                if day_plan:
-                    actual_cal = sum(s.recipe.calories for s in day_plan.schedule)
-                    
-                    # Daily Header
-                    st.markdown(f"### 📅 {day_name} Protocol")
-                    c_a, c_b = st.columns(2)
-                    c_a.info(f"**Target:** {day_plan.target_calories} kcal")
-                    c_b.success(f"**Actual:** {actual_cal} kcal")
-                    
-                    # Timeline
-                    for slot in day_plan.schedule:
-                        # Render Recipe Card
-                        with st.container():
-                            st.markdown(f"""
-                            <div class="meal-card">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                    <span class="time-badge">⏰ {slot.time}</span>
-                                    <span style="color:#888; font-size:0.9em;">{slot.type}</span>
-                                </div>
-                                <h3 style="margin:0 0 5px 0; color:#fff;">{slot.recipe.title}</h3>
-                                <p style="color:#ccc; margin-bottom:10px;">{slot.recipe.description}</p>
-                                <div style="background:#111; padding:8px; border-radius:6px; margin-bottom:10px;">
-                                    <span class="macro-text">{slot.recipe.macros}</span>
-                                    <span style="float:right; color:#00c805; font-weight:bold;">{slot.recipe.calories} kcal</span>
-                                </div>
-                                <a href="https://www.google.com/search?q={slot.recipe.search_query.replace(' ', '+')}" target="_blank" 
-                                   style="color:#00c805; text-decoration:none; font-weight:bold; font-size:0.9em;">
-                                   🔎 Find Recipe on Google &rarr;
-                                </a>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-    except Exception as e:
-        st.error(f"Analysis Failed: {e}")
-        import traceback
-        st.code(traceback.format_exc())
-
-else:
-    # IDLE STATE
-    st.markdown("### 👋 Welcome to Whoop-to-Plate")
-    st.info("Please drag and drop your 4 Whoop CSV files into the sidebar to begin.")
+                st.markdown("---")
+                
+                for slot in day_plan.schedule:
+                    st.markdown(f"""
+                    <div class="meal-card">
+                        <div style="display:flex; justify-content:space-between; color:#8B949E; margin-bottom:5px;">
+                            <span>⏰ <b>{slot.time}</b></span>
+                            <span>{slot.type}</span>
+                        </div>
+                        <h3 style="color:#FFF !important; margin:0;">{slot.recipe.title}</h3>
+                        <p style="color:#CCC !important; font-style:italic;">{slot.recipe.description}</p>
+                        <div style="background:#111; padding:10px; border-radius:5px; display:flex; justify-content:space-between;">
+                            <span style="font-family:monospace; color:#DDD;">{slot.recipe.macros}</span>
+                            <span style="color:#00C805; font-weight:bold;">{slot.recipe.calories} kcal</span>
+                        </div>
+                        <div style="margin-top:10px;">
+                            <a href="https://www.google.com/search?q={slot.recipe.search_query.replace(' ', '+')}" target="_blank" style="color:#00C805; text-decoration:none; font-weight:bold;">🔎 Search Recipe &rarr;</a>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+    if st.button("⬅️ Start Over"):
+        st.session_state.plan_generated = False
+        st.rerun()

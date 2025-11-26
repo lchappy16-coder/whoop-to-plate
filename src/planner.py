@@ -7,12 +7,9 @@ class MealPlanner:
         daily_plans = []
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-        # 1. DETERMINE GOAL OFFSET
         offset = 0
-        if goal == "Lose 1 lb/week":
-            offset = -500
-        elif goal == "Gain 1 lb/week":
-            offset = 500
+        if goal == "Lose 1 lb/week": offset = -500
+        elif goal == "Gain 1 lb/week": offset = 500
         
         total_week_cals = 0
 
@@ -20,34 +17,22 @@ class MealPlanner:
             profile = metrics.weekday_profiles.get(day)
             if not profile: continue
 
-            # 2. CALORIE MATH
-            # Baseline: Daily Burn + Goal Offset
+            # Baseline Target
             daily_target = metrics.avg_daily_burn + offset
-
-            # Strain Adjustment
-            if profile.avg_strain > 14: 
-                daily_target += 200 
-            elif profile.avg_strain < 8: 
-                daily_target -= 200
-
-            # Safety Floor
+            if profile.avg_strain > 14: daily_target += 200 
+            elif profile.avg_strain < 8: daily_target -= 200
             if daily_target < 1400: daily_target = 1400
 
-            # 3. BUILD SCHEDULE (Pass target as Integer)
+            # Build Schedule
             schedule = self._build_daily_schedule(profile, int(daily_target))
             
-            # Recalculate exact total from schedule to be honest in summary
+            # Sum exact calories
             exact_total = sum(s.recipe.calories for s in schedule)
             total_week_cals += exact_total
 
-            daily_plans.append(DayPlan(
-                day_name=day,
-                target_calories=exact_total, # Set target to exactly what we planned
-                schedule=schedule
-            ))
+            daily_plans.append(DayPlan(day_name=day, target_calories=exact_total, schedule=schedule))
         
         avg_intake = int(total_week_cals / 7)
-        
         return WeeklyPlan(
             summary=f"Goal: {goal}. Avg Intake: {avg_intake} kcal vs Burn: {metrics.avg_daily_burn} kcal.",
             daily_plans=daily_plans
@@ -57,7 +42,6 @@ class MealPlanner:
         slots = []
         is_workout_day = profile.avg_workout_time != "Rest Day"
         
-        # --- TIME PARSING ---
         try: wake_h = int(profile.avg_wake_time.split(":")[0])
         except: wake_h = 7
         
@@ -66,98 +50,86 @@ class MealPlanner:
             try: workout_h = int(profile.avg_workout_time.split(":")[0])
             except: workout_h = 17
 
-        # --- CALORIE BUDGETING (The Fix) ---
         remaining_cals = total_budget_cals
         
-        # 1. Determine if Snack is needed
+        # Snack Allocation
         needs_snack = False
         snack_cals = 0
-        
         if is_workout_day and workout_h > 12:
-            # If working out in afternoon, set aside snack budget
             needs_snack = True
             snack_cals = 250
             remaining_cals -= snack_cals
 
-        # 2. Split Main Meals (35% / 30% / 35% of REMAINDER)
-        # We use int() to strip decimals
+        # Meal Allocation (35/30/35 split of remainder)
         m1_cals = int(remaining_cals * 0.35)
         m2_cals = int(remaining_cals * 0.30)
-        
-        # 3. Assign Remainder to Dinner (Fixes rounding errors)
-        # This ensures m1 + m2 + m3 + snack == total_budget_cals EXACTLY
         m3_cals = remaining_cals - m1_cals - m2_cals
 
-        # --- SCHEDULING ---
-
-        # MEAL 1
+        # Meal 1
         m1_h = wake_h + 1
         if is_workout_day and workout_h <= wake_h + 1: m1_h = workout_h + 1
-        
         cat = "breakfast_high_fat"
         if is_workout_day and workout_h < 12: cat = "breakfast_high_carb"
         
-        m1_rec = self._get_scaled_recipe(cat, m1_cals)
-        slots.append(MealSlot(self._fmt_time(m1_h), "Meal 1 (Break-Fast)", m1_rec, "Satiety & Focus"))
+        slots.append(MealSlot(self._fmt_time(m1_h), "Meal 1 (Break-Fast)", self._get_scaled_recipe(cat, m1_cals), "Satiety & Focus"))
 
-        # MEAL 2
+        # Meal 2
         m2_h = m1_h + 4
-        m2_rec = self._get_scaled_recipe("lunch_light", m2_cals)
-        slots.append(MealSlot(self._fmt_time(m2_h), "Meal 2 (Lunch)", m2_rec, "Sustained Energy"))
+        slots.append(MealSlot(self._fmt_time(m2_h), "Meal 2 (Lunch)", self._get_scaled_recipe("lunch_light", m2_cals), "Sustained Energy"))
 
-        # SNACK (If allocated)
+        # Snack
         if needs_snack:
             snack_h = workout_h - 1
             if snack_h > m2_h + 1:
-                snack_rec = self._get_scaled_recipe("snacks", snack_cals)
-                slots.append(MealSlot(self._fmt_time(snack_h), "Pre-Workout Fuel", snack_rec, "Quick Glycogen"))
+                slots.append(MealSlot(self._fmt_time(snack_h), "Pre-Workout Fuel", self._get_scaled_recipe("snacks", snack_cals), "Quick Glycogen"))
 
-        # MEAL 3
+        # Meal 3
         m3_h = 18
         if is_workout_day and workout_h >= 17: m3_h = workout_h + 1
         if m3_h > 20: m3_h = 20
         if m3_h <= m2_h: m3_h = m2_h + 3
-
-        m3_rec = self._get_scaled_recipe("dinner_recovery", m3_cals)
-        slots.append(MealSlot(self._fmt_time(m3_h), "Meal 3 (Dinner)", m3_rec, "Deep Recovery"))
+        slots.append(MealSlot(self._fmt_time(m3_h), "Meal 3 (Dinner)", self._get_scaled_recipe("dinner_recovery", m3_cals), "Deep Recovery"))
 
         return slots
 
     def _fmt_time(self, hour: int) -> str:
         if hour >= 24: hour -= 24
         suffix = "AM"
-        display_h = hour
+        disp = hour
         if hour >= 12:
             suffix = "PM"
-            if hour > 12: display_h -= 12
-        elif hour == 0: display_h = 12
-        return f"{display_h}:00 {suffix}"
+            if hour > 12: disp -= 12
+        elif hour == 0: disp = 12
+        return f"{disp}:00 {suffix}"
 
     def _get_scaled_recipe(self, category, target_cals) -> Recipe:
         template = random.choice(RECIPE_VAULT[category])
         
-        ratios = {
-            "breakfast_high_fat":  [0.30, 0.65, 0.05],
-            "breakfast_high_carb": [0.30, 0.10, 0.60], 
-            "lunch_light":         [0.40, 0.40, 0.20], 
-            "dinner_recovery":     [0.30, 0.20, 0.50], 
-            "snacks":              [0.10, 0.00, 0.90]  
-        }
+        # STRICT SCALING LOGIC
+        # 1. Get Base Nutrition from Config
+        base_cals = template.get('base_cals', 500)
+        base_p = template.get('p', 20)
+        base_f = template.get('f', 20)
+        base_c = template.get('c', 20)
         
-        split = ratios.get(category, [0.3, 0.35, 0.35])
+        # 2. Calculate Serving Multiplier
+        # Example: Target 875 / Base 146 = 5.99 Servings
+        servings = target_cals / base_cals
         
-        p = int((target_cals * split[0]) / 4)
-        f = int((target_cals * split[1]) / 9) 
-        c = int((target_cals * split[2]) / 4) 
+        # 3. Scale Macros Strictly
+        p = int(base_p * servings)
+        f = int(base_f * servings)
+        c = int(base_c * servings)
         
-        base = template.get('base_cals', 500)
-        ratio = target_cals / base
+        # 4. Format Description to explain the portion
+        # e.g., "2.5 Servings"
+        portion_note = f" ({servings:.1f} Servings)"
         
         return Recipe(
-            title=template['title'],
+            title=template['title'] + portion_note,
             description=template['desc'],
-            ingredients_text=f"Portion scaled {ratio:.1f}x",
-            macros=f"~{p}g P | ~{f}g F | ~{c}g C",
-            calories=int(target_cals), # Pass the integer target directly
+            ingredients_text=f"Portion scaled {servings:.1f}x",
+            macros=f"{p}g P | {f}g F | {c}g C",
+            calories=int(target_cals),
             search_query=template['query']
         )

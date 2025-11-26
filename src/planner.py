@@ -3,30 +3,53 @@ from src.models import WeeklyMetrics, WeeklyPlan, DayPlan, MealSlot, Recipe
 from src.config import RECIPE_VAULT
 
 class MealPlanner:
-    def generate_precision_week(self, metrics: WeeklyMetrics) -> WeeklyPlan:
+    def generate_precision_week(self, metrics: WeeklyMetrics, goal: str) -> WeeklyPlan:
         daily_plans = []
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+        # 1. DETERMINE BASELINE OFFSET
+        offset = 0
+        if goal == "Lose 1 lb/week":
+            offset = -500
+        elif goal == "Gain 1 lb/week":
+            offset = 500
+        
+        # Calculate Weekly Stats for Summary
+        total_week_cals = 0
 
         for day in days:
             profile = metrics.weekday_profiles.get(day)
             if not profile: continue
 
-            # 1. Calorie Math
-            daily_target = metrics.avg_daily_burn
-            if profile.avg_strain > 14: daily_target += 300
-            elif profile.avg_strain < 8: daily_target -= 200
+            # 2. CALORIE MATH
+            # Start with Daily Burn + Goal Offset
+            daily_target = metrics.avg_daily_burn + offset
 
-            # 2. Schedule Logic
+            # 3. STRAIN MICRO-ADJUSTMENTS
+            # Even in a deficit, we fuel the work. Even in surplus, we cut back on rest days.
+            if profile.avg_strain > 14: 
+                daily_target += 200 
+            elif profile.avg_strain < 8: 
+                daily_target -= 200
+
+            # Safety Floor: Never drop below 1500 (unless petite, but safe default)
+            if daily_target < 1500: daily_target = 1500
+
+            # 4. BUILD SCHEDULE
             schedule = self._build_daily_schedule(profile, daily_target)
             
+            total_week_cals += daily_target
+
             daily_plans.append(DayPlan(
                 day_name=day,
                 target_calories=int(daily_target),
                 schedule=schedule
             ))
-
+        
+        avg_intake = int(total_week_cals / 7)
+        
         return WeeklyPlan(
-            summary=f"Weekly plan calibrated for {metrics.avg_daily_burn} avg burn.",
+            summary=f"Goal: {goal}. Avg Intake: {avg_intake} kcal vs Burn: {metrics.avg_daily_burn} kcal.",
             daily_plans=daily_plans
         )
 
@@ -46,9 +69,7 @@ class MealPlanner:
         m1_h = wake_h + 1
         if is_workout_day and workout_h <= wake_h + 1: m1_h = workout_h + 1
             
-        # Default to High Fat (Low Insulin)
         cat = "breakfast_high_fat"
-        # If High Strain/Morning Workout -> High Carb
         if is_workout_day and workout_h < 12: cat = "breakfast_high_carb"
             
         m1_rec = self._get_scaled_recipe(cat, total_cals * 0.35)
@@ -78,19 +99,13 @@ class MealPlanner:
         return slots
 
     def _fmt_time(self, hour: int) -> str:
-        # LOGIC: Convert 24h to 12h AM/PM
         if hour >= 24: hour -= 24
-        
         suffix = "AM"
         display_h = hour
-        
         if hour >= 12:
             suffix = "PM"
-            if hour > 12:
-                display_h -= 12
-        elif hour == 0:
-            display_h = 12
-            
+            if hour > 12: display_h -= 12
+        elif hour == 0: display_h = 12
         return f"{display_h}:00 {suffix}"
 
     def _get_scaled_recipe(self, category, target_cals) -> Recipe:

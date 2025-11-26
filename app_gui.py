@@ -20,68 +20,21 @@ st.set_page_config(
 # MODERN HIGH-CONTRAST CSS
 st.markdown("""
 <style>
-    /* 1. FORCE TEXT COLOR */
-    .stApp, .stMarkdown, h1, h2, h3, h4, h5, h6, p, li, span, div {
-        color: #E0E0E0 !important;
-    }
-    
-    /* 2. BACKGROUND */
-    .stApp {
-        background-color: #0E1117;
-    }
-
-    /* 3. UPLOAD CARDS */
-    .upload-card {
-        background-color: #161B22;
-        border: 1px dashed #30363D;
-        border-radius: 10px;
-        padding: 20px;
-        text-align: center;
-    }
-    
-    /* 4. MEAL CARDS */
-    .meal-card {
-        background-color: #1E1E1E;
-        border: 1px solid #333;
-        border-left: 4px solid #00C805;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-    
-    /* 5. METRICS */
-    div[data-testid="stMetricValue"] {
-        color: #00C805 !important;
-        font-size: 28px !important;
-    }
-    div[data-testid="stMetricLabel"] {
-        color: #8B949E !important;
-    }
-
-    /* 6. BUTTONS */
-    div.stButton > button {
-        background-color: #00C805;
-        color: white !important;
-        border: none;
-        font-weight: bold;
-        padding: 10px 24px;
-        border-radius: 8px;
-        transition: all 0.2s;
-    }
-    div.stButton > button:hover {
-        background-color: #00E006;
-        transform: scale(1.02);
-    }
+    .stApp, .stMarkdown, h1, h2, h3, h4, h5, h6, p, li, span, div { color: #E0E0E0 !important; }
+    .stApp { background-color: #0E1117; }
+    .upload-card { background-color: #161B22; border: 1px dashed #30363D; border-radius: 10px; padding: 20px; text-align: center; }
+    .meal-card { background-color: #1E1E1E; border: 1px solid #333; border-left: 4px solid #00C805; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    div[data-testid="stMetricValue"] { color: #00C805 !important; font-size: 28px !important; }
+    div[data-testid="stMetricLabel"] { color: #8B949E !important; }
+    div.stButton > button { background-color: #00C805; color: white !important; border: none; font-weight: bold; padding: 10px 24px; border-radius: 8px; transition: all 0.2s; }
+    div.stButton > button:hover { background-color: #00E006; transform: scale(1.02); }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 2. HEADER ---
 c1, c2 = st.columns([1, 5])
-with c1:
-    st.write("🧬 **WHOOP-TO-PLATE**")
-with c2:
-    pass 
+with c1: st.write("🧬 **WHOOP-TO-PLATE**")
+with c2: pass 
 
 st.divider()
 
@@ -89,20 +42,23 @@ st.divider()
 if 'plan_generated' not in st.session_state:
     st.session_state.plan_generated = False
 
-# HEADER TEXT
 st.markdown("<h1 style='text-align: center; margin-bottom: 10px;'>Initialize Protocol</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #8B949E !important; margin-bottom: 40px;'>Upload your raw WHOOP exports to generate a precision nutrition strategy.</p>", unsafe_allow_html=True)
 
-# THE 2x2 GRID
 col1, col2 = st.columns(2, gap="large")
-
 with col1:
     f1 = st.file_uploader("Cycles (physiological_cycles.csv)", type="csv")
     f2 = st.file_uploader("Workouts (workouts.csv)", type="csv")
-
 with col2:
     f3 = st.file_uploader("Sleeps (sleeps.csv)", type="csv")
     f4 = st.file_uploader("Journal (journal_entries.csv)", type="csv")
+
+# GOAL SELECTION
+st.markdown("<br>", unsafe_allow_html=True)
+c_goal1, c_goal2, c_goal3 = st.columns([1, 2, 1])
+with c_goal2:
+    st.markdown("#### 🎯 Select Objective")
+    goal_choice = st.selectbox("Optimize for:", ["Maintain Weight", "Lose 1 lb/week", "Gain 1 lb/week"])
 
 # ACTION BUTTON
 st.markdown("<br>", unsafe_allow_html=True)
@@ -114,23 +70,18 @@ with center_col2:
             with st.spinner("Triangulating Circadian Rhythm & Metabolic Load..."):
                 try:
                     ingestor = IngestionEngine()
-                    files_map = {
-                        "physiological_cycles.csv": f1,
-                        "workouts.csv": f2,
-                        "sleeps.csv": f3,
-                        "journal_entries.csv": f4
-                    }
+                    files_map = { "physiological_cycles.csv": f1, "workouts.csv": f2, "sleeps.csv": f3, "journal_entries.csv": f4 }
                     ingestor.load_from_memory(files_map)
                     metrics = ingestor.analyze_patterns()
                     
                     chef = MealPlanner()
-                    plan = chef.generate_precision_week(metrics)
+                    # Pass the goal choice to the planner
+                    plan = chef.generate_precision_week(metrics, goal_choice)
                     
                     st.session_state.metrics = metrics
                     st.session_state.plan = plan
                     st.session_state.plan_generated = True
                     st.rerun() 
-                    
                 except Exception as e:
                     st.error(f"Error: {e}")
     else:
@@ -162,10 +113,8 @@ if st.session_state.plan_generated:
             
             if day_plan:
                 c_a, c_b = st.columns([3, 1])
-                with c_a:
-                    st.markdown(f"### 📅 {day_name} Schedule")
-                with c_b:
-                    st.markdown(f"<div style='text-align:right; font-size:1.5em; color:#00C805; font-weight:bold;'>{day_plan.target_calories} kcal</div>", unsafe_allow_html=True)
+                with c_a: st.markdown(f"### 📅 {day_name} Schedule")
+                with c_b: st.markdown(f"<div style='text-align:right; font-size:1.5em; color:#00C805; font-weight:bold;'>{day_plan.target_calories} kcal</div>", unsafe_allow_html=True)
                 
                 st.markdown("---")
                 

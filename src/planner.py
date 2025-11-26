@@ -1,5 +1,4 @@
-# src/planner.py
-import random
+﻿import random
 from src.models import WeeklyMetrics, WeeklyPlan, DayPlan, MealSlot, Recipe
 from src.config import RECIPE_VAULT
 
@@ -79,29 +78,37 @@ class MealPlanner:
         return slots
 
     def _fmt_time(self, hour: int) -> str:
+        # LOGIC: Convert 24h to 12h AM/PM
         if hour >= 24: hour -= 24
-        return f"{hour:02d}:00"
+        
+        suffix = "AM"
+        display_h = hour
+        
+        if hour >= 12:
+            suffix = "PM"
+            if hour > 12:
+                display_h -= 12
+        elif hour == 0:
+            display_h = 12
+            
+        return f"{display_h}:00 {suffix}"
 
     def _get_scaled_recipe(self, category, target_cals) -> Recipe:
         template = random.choice(RECIPE_VAULT[category])
         
-        # --- DYNAMIC MACRO SPLITS [Protein, Fat, Carb] ---
-        # This fixes the "93g Carb Keto Omelet" bug
         ratios = {
-            "breakfast_high_fat":  [0.30, 0.65, 0.05], # 65% Fat, 5% Carb
-            "breakfast_high_carb": [0.30, 0.10, 0.60], # 60% Carb
-            "lunch_light":         [0.40, 0.40, 0.20], # Moderate
-            "dinner_recovery":     [0.30, 0.20, 0.50], # High Carb for sleep
-            "snacks":              [0.10, 0.00, 0.90]  # Pure Energy
+            "breakfast_high_fat":  [0.30, 0.65, 0.05],
+            "breakfast_high_carb": [0.30, 0.10, 0.60], 
+            "lunch_light":         [0.40, 0.40, 0.20], 
+            "dinner_recovery":     [0.30, 0.20, 0.50], 
+            "snacks":              [0.10, 0.00, 0.90]  
         }
         
-        # Default to balanced if category not found
         split = ratios.get(category, [0.3, 0.35, 0.35])
         
-        # Math: (Calories * Percent) / Calories_Per_Gram
-        p = int((target_cals * split[0]) / 4) # 4 cal/g
-        f = int((target_cals * split[1]) / 9) # 9 cal/g
-        c = int((target_cals * split[2]) / 4) # 4 cal/g
+        p = int((target_cals * split[0]) / 4)
+        f = int((target_cals * split[1]) / 9) 
+        c = int((target_cals * split[2]) / 4) 
         
         base = template.get('base_cals', 500)
         ratio = target_cals / base
